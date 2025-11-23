@@ -2,84 +2,103 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import plotly.express as px
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 
-# Configuración de la página (Título y diseño)
-st.set_page_config(page_title="CardioGuard AI", layout="wide", initial_sidebar_state="expanded")
+# Configuración de página
+st.set_page_config(page_title="CardioGuard AI", layout="wide")
+st.title("❤️ CardioGuard AI: Sistema Clínico Inteligente")
 
-st.title("❤️ CardioGuard AI: Análisis de Riesgo Cardíaco")
-st.markdown("""
-Esta aplicación permite cargar datos clínicos, visualizar estadísticas clave y recibir
-**recomendaciones automáticas** para pacientes con insuficiencia cardíaca.
-""")
-
-# 1. Módulo de Carga de Datos
-uploaded_file = st.file_uploader("📂 Cargar base de datos (CSV)")
+# Carga de datos
+uploaded_file = st.file_uploader("📂 Cargar expediente clínico (CSV)")
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.success("¡Datos cargados exitosamente!")
-    
-    # Mostrar vista previa
-    if st.checkbox("Ver datos crudos"):
-        st.dataframe(df.head())
+    st.success("✅ Datos cargados correctamente")
 
-    # 2. Dashboard de Gráficas (Visualización)
-    st.header("📊 Análisis Visual")
+    # --- SECCIÓN 1: GRÁFICAS GLOBALES (Estilo Científico) ---
+    st.header("📊 Análisis Global de Datos")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Distribución de Fallecimientos")
-        fig_pie = px.pie(df, names='DEATH_EVENT', title='Proporción de Fallecimientos (0=No, 1=Sí)')
-        st.plotly_chart(fig_pie, use_container_width=True)
-        
-    with col2:
-        st.subheader("Edad vs. Fracción de Eyección")
-        fig_scat = px.scatter(df, x='age', y='ejection_fraction', color='DEATH_EVENT', 
-                              title="Relación Edad - Función Cardíaca")
-        st.plotly_chart(fig_scat, use_container_width=True)
+        st.subheader("1. Mapa de Calor (Correlaciones)")
+        # Recreamos la gráfica exacta que te gustó
+        fig_corr, ax = plt.subplots(figsize=(10, 8))
+        sns.heatmap(df.corr(), annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
+        st.pyplot(fig_corr)
 
-    # 3. Módulo de Recomendaciones Inteligentes (Lógica de Negocio)
-    st.header("🩺 Recomendaciones Clínicas Automáticas")
-    
-    # Definir umbrales de riesgo basados en análisis estadístico previo
-    # Umbrales: Creatinina > 1.4 (Cuartil superior), Eyección < 30 (Cuartil inferior)
-    risk_creatinine = 1.4
-    risk_ejection = 30
-    
-    # Filtrar pacientes de alto riesgo
-    high_risk_patients = df[
-        (df['serum_creatinine'] > risk_creatinine) | 
-        (df['ejection_fraction'] < risk_ejection)
-    ]
-    
-    st.warning(f"⚠️ Se han detectado **{len(high_risk_patients)} pacientes** con indicadores de alto riesgo.")
-    
-  # Generador de Reporte
-    with st.expander(f"Ver Recomendaciones Detalladas ({len(high_risk_patients)} casos detectados)"):
+    with col2:
+        st.subheader("2. Factores de Riesgo (Importancia)")
+        # Entrenamos un modelo rápido para sacar la importancia real
+        X = df.drop('DEATH_EVENT', axis=1)
+        y = df['DEATH_EVENT']
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model.fit(X, y)
         
-        # 1. Tabla Resumen (Mejor para analizar muchos datos de golpe)
-        st.write("### 📋 Tabla de Pacientes en Riesgo")
-        st.dataframe(high_risk_patients)
+        feat_importances = pd.Series(model.feature_importances_, index=X.columns)
         
-        # 2. Lista Detallada (Uno por uno)
-        st.write("### 🩺 Análisis Individual")
-        for index, row in high_risk_patients.iterrows(): 
-            reasons = []
-            if row['serum_creatinine'] > risk_creatinine:
-                reasons.append(f"Creatinina Alta ({row['serum_creatinine']} mg/dL)")
-            if row['ejection_fraction'] < risk_ejection:
-                reasons.append(f"Fracción de Eyección Baja ({row['ejection_fraction']}%)")
+        fig_imp, ax = plt.subplots(figsize=(10, 8))
+        feat_importances.nlargest(10).plot(kind='barh', color='teal', ax=ax)
+        ax.set_title("Top 10 Variables que predicen fallecimiento")
+        st.pyplot(fig_imp)
+
+    st.markdown("---")
+
+    # --- SECCIÓN 2: ANÁLISIS DIVIDIDO (Vivos vs Fallecidos) ---
+    st.header("👥 Gestión de Pacientes")
+    
+    # Crear pestañas
+    tab_vivos, tab_fallecidos = st.tabs(["🟢 Pacientes Vivos (Prevención)", "🔴 Análisis de Defunciones"])
+
+    # --- PESTAÑA 1: VIVOS ---
+    with tab_vivos:
+        vivos = df[df['DEATH_EVENT'] == 0]
+        st.metric("Total Pacientes Vivos", len(vivos))
+        
+        st.subheader("🩺 Diagnóstico y Soluciones Sugeridas")
+        st.info("A continuación se presentan acciones preventivas para pacientes que siguen en tratamiento.")
+
+        for index, row in vivos.iterrows():
+            # Lógica de "Doctor Virtual" para sugerir soluciones
+            acciones = []
             
-            # Usamos un estilo diferente si el paciente falleció (dato histórico)
-            estado = "🔴 Fallecido" if row['DEATH_EVENT'] == 1 else "🟢 Vivo"
+            # 1. Problemas Renales
+            if row['serum_creatinine'] > 1.4:
+                acciones.append("⚠️ **Riñones:** Nivel alto de creatinina. **Solución:** Solicitar perfil renal completo y evaluar diuréticos.")
             
-            st.markdown(f"**Paciente ID #{index}** (Edad: {int(row['age'])}) - {estado}")
-            st.info(f"👉 Factores de riesgo: {', '.join(reasons)}")
-            st.markdown("---") # Una línea separadora
+            # 2. Problemas Cardíacos (Bombeo)
+            if row['ejection_fraction'] < 30:
+                acciones.append("⚠️ **Corazón:** Fracción de eyección crítica (<30%). **Solución:** Evaluar terapia con betabloqueantes o marcapasos.")
+            
+            # 3. Hipertensión
+            if row['high_blood_pressure'] == 1:
+                acciones.append("⚠️ **Presión:** Hipertensión detectada. **Solución:** Monitoreo diario y reducir ingesta de sodio.")
+
+            # 4. Anemia
+            if row['anaemia'] == 1:
+                acciones.append("⚠️ **Sangre:** Anemia presente. **Solución:** Suplementos de hierro y eritropoyetina.")
+
+            # Si tiene algún riesgo, lo mostramos
+            if acciones:
+                with st.expander(f"Paciente #{index} - Edad: {int(row['age'])} años (Riesgo Detectado)"):
+                    for accion in acciones:
+                        st.markdown(f"- {accion}")
+            
+    # --- PESTAÑA 2: FALLECIDOS ---
+    with tab_fallecidos:
+        fallecidos = df[df['DEATH_EVENT'] == 1]
+        st.metric("Total Defunciones", len(fallecidos))
+        
+        st.error("Estos pacientes han fallecido. Análisis retrospectivo para mejorar protocolos futuros.")
+        
+        st.write("### Datos de Pacientes Fallecidos")
+        st.dataframe(fallecidos.style.highlight_max(axis=0))
+        
+        st.write("### Distribución de Edades en Fallecidos")
+        fig_hist, ax = plt.subplots()
+        sns.histplot(fallecidos['age'], kde=True, color='red', ax=ax)
+        st.pyplot(fig_hist)
 
 else:
-
-    st.info("Esperando archivo CSV... Por favor cargue la base de datos para iniciar.")
-
+    st.info("Esperando archivo CSV...")
