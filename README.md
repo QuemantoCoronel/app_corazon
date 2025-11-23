@@ -1,11 +1,17 @@
 Proyecto “CardioGuard AI”
 Autores:
 Albitres Dávila, Juan
+
 Angeles Pérez, Jhonny Luis
+
 Ballesteros Reyes, Renato
+
 Nolasco Castillo, Juan David 
+
 Rodriguez Cabrera, Marcelo
+
 Profesor:
+
 Elias Enrique Santa Cruz Damian
   
 TRUJILLO-PERÚ 2025
