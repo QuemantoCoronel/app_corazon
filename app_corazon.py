@@ -14,7 +14,7 @@ Esta aplicación permite cargar datos clínicos, visualizar estadísticas clave 
 """)
 
 # 1. Módulo de Carga de Datos
-uploaded_file = st.file_uploader("📂 Cargar base de datos (CSV)", type=["csv"])
+uploaded_file = st.file_uploader("📂 Cargar base de datos (CSV)")
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -69,4 +69,5 @@ if uploaded_file is not None:
             st.info(f"👉 Acción sugerida: {', '.join(reasons)}")
 
 else:
+
     st.info("Esperando archivo CSV... Por favor cargue la base de datos para iniciar.")
