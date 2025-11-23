@@ -9,8 +9,6 @@ st.set_page_config(page_title="CardioGuard AI", layout="wide")
 st.title("❤️ CardioGuard AI: Sistema Clínico Inteligente")
 
 # --- FUNCIONES DE CLASIFICACIÓN ---
-
-# 1. Para Fallecidos (Causa probable de muerte)
 def determinar_causa(row):
     if row['serum_creatinine'] >= 1.8: return "Falla Renal Severa"
     elif row['ejection_fraction'] < 30: return "Falla Cardíaca (Bajo Bombeo)"
@@ -19,7 +17,6 @@ def determinar_causa(row):
     elif row['diabetes'] == 1:          return "Complicación Diabética"
     else:                               return "Causas Generales"
 
-# 2. Para Vivos (Riesgo Principal Latente)
 def determinar_riesgo(row):
     if row['serum_creatinine'] > 1.4:   return "Alto Riesgo Renal"
     elif row['ejection_fraction'] < 30: return "Insuficiencia Cardíaca Severa"
@@ -35,26 +32,47 @@ if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     st.success("✅ Datos cargados correctamente")
 
-    # --- SECCIÓN 1: GRÁFICAS GLOBALES ---
+    # --- SECCIÓN 1: GRÁFICAS GLOBALES --
     st.header("📊 Análisis Global de Datos")
+    
+    # Fila Superior: Distribución y Correlación
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("1. Mapa de Calor (Correlaciones)")
-        fig_corr, ax = plt.subplots(figsize=(6, 5))
-        sns.heatmap(df.corr(), annot=False, cmap='coolwarm', ax=ax)
-        st.pyplot(fig_corr)
+        st.subheader("1. Distribución de Desenlace")
+        st.caption("Comparativa: Pacientes Vivos vs Fallecidos")
+        fig_dist, ax = plt.subplots(figsize=(6, 5))
+        # Usamos el estilo original 'viridis' para el conteo
+        sns.countplot(x='DEATH_EVENT', data=df, palette='viridis', ax=ax)
+        ax.set_xlabel("Estado (0: Vivo, 1: Fallecido)")
+        ax.set_ylabel("Cantidad de Pacientes")
+        st.pyplot(fig_dist)
 
     with col2:
-        st.subheader("2. Factores de Riesgo (IA)")
-        X = df.drop('DEATH_EVENT', axis=1)
-        y = df['DEATH_EVENT']
-        model = RandomForestClassifier(n_estimators=100, random_state=42)
-        model.fit(X, y)
-        feat_importances = pd.Series(model.feature_importances_, index=X.columns)
-        fig_imp, ax = plt.subplots(figsize=(6, 5))
-        feat_importances.nlargest(7).plot(kind='barh', color='teal', ax=ax)
-        st.pyplot(fig_imp)
+        st.subheader("2. Mapa de Calor (Correlaciones)")
+        st.caption("Relación numérica entre variables")
+        fig_corr, ax = plt.subplots(figsize=(10, 8))
+        sns.heatmap(df.corr(), annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
+        st.pyplot(fig_corr)
+
+    # Fila Inferior: Importancia de Variables (Ancho completo)
+    st.subheader("3. Variables Críticas (Análisis de IA)")
+    st.caption("Factores que más influyen en el riesgo de muerte según el modelo.")
+    
+    # Entrenamos modelo
+    X = df.drop('DEATH_EVENT', axis=1)
+    y = df['DEATH_EVENT']
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X, y)
+    
+    # Preparamos datos para gráfica estilo original
+    feat_importances = pd.DataFrame(model.feature_importances_, index=X.columns, columns=['importance'])
+    feat_importances = feat_importances.sort_values('importance', ascending=False)
+    
+    fig_imp, ax = plt.subplots(figsize=(10, 4))
+    sns.barplot(x=feat_importances.importance, y=feat_importances.index, palette='viridis', ax=ax)
+    ax.set_xlabel("Nivel de Importancia")
+    st.pyplot(fig_imp)
 
     st.markdown("---")
 
@@ -65,8 +83,6 @@ if uploaded_file is not None:
     # --- PESTAÑA 1: VIVOS ---
     with tab_vivos:
         vivos = df[df['DEATH_EVENT'] == 0].copy()
-        
-        # Clasificamos a los vivos para el gráfico
         vivos['Riesgo_Principal'] = vivos.apply(determinar_riesgo, axis=1)
         conteo_riesgos = vivos['Riesgo_Principal'].value_counts()
         
@@ -86,8 +102,6 @@ if uploaded_file is not None:
             
             for index, row in vivos.iterrows():
                 recommendations = []
-                
-                # Lógica detallada (Diagnóstico + Solución por separado)
                 if row['serum_creatinine'] > 1.4:
                     recommendations.append({
                         "area": "Riñones",
@@ -107,12 +121,11 @@ if uploaded_file is not None:
                         "sol": "Revisar adherencia al tratamiento antihipertensivo y dieta baja en sodio."
                     })
                 
-                # Solo mostramos si hay recomendaciones
                 if recommendations:
                     with st.expander(f"Paciente #{index} (Edad: {int(row['age'])}) - {row['Riesgo_Principal']}"):
                         for rec in recommendations:
                             st.markdown(f"**⚠️ Diagnóstico ({rec['area']}):** {rec['diag']}")
-                            st.info(f"💡 **Solución:** {rec['sol']}") # El .info crea un recuadro azul/verde bonito
+                            st.info(f"💡 **Solución:** {rec['sol']}")
                             st.markdown("---")
 
     # --- PESTAÑA 2: FALLECIDOS ---
@@ -131,7 +144,7 @@ if uploaded_file is not None:
         with col_pastel:
             st.subheader("2. Causas Probables")
             fig_pie, ax = plt.subplots()
-            colors = sns.color_palette('Set2')[0:len(conteo_causas)] # Usamos otra paleta de colores
+            colors = sns.color_palette('Set2')[0:len(conteo_causas)]
             ax.pie(conteo_causas, labels=conteo_causas.index, autopct='%1.1f%%', startangle=90, colors=colors)
             ax.axis('equal')  
             st.pyplot(fig_pie)
