@@ -25,24 +25,25 @@ def determinar_riesgo(row):
     elif row['diabetes'] == 1:          return "Diabetes"
     else:                               return "Bajo Riesgo Aparente"
 
-# Carga de datos
-uploaded_file = st.file_uploader("📂 Cargar expediente clínico (CSV)")
+# --- CARGA AUTOMÁTICA DE DATOS ---
+try:
+    df = pd.read_csv("heart_failure_clinical_records_dataset.csv")
+    dataset_loaded = True
+except FileNotFoundError:
+    st.error("❌ Error: No se encontró el archivo CSV en el repositorio.")
+    st.info("Asegúrate de subir 'heart_failure_clinical_records_dataset.csv' a GitHub junto con este código.")
+    dataset_loaded = False
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.success("✅ Datos cargados correctamente")
-
-    # --- SECCIÓN 1: GRÁFICAS GLOBALES --
+if dataset_loaded:
+    # --- SECCIÓN 1: GRÁFICAS GLOBALES ---
     st.header("📊 Análisis Global de Datos")
     
-    # Fila Superior: Distribución y Correlación
     col1, col2 = st.columns(2)
     
     with col1:
         st.subheader("1. Distribución de Desenlace")
         st.caption("Comparativa: Pacientes Vivos vs Fallecidos")
         fig_dist, ax = plt.subplots(figsize=(6, 5))
-        # Usamos el estilo original 'viridis' para el conteo
         sns.countplot(x='DEATH_EVENT', data=df, palette='viridis', ax=ax)
         ax.set_xlabel("Estado (0: Vivo, 1: Fallecido)")
         ax.set_ylabel("Cantidad de Pacientes")
@@ -55,17 +56,14 @@ if uploaded_file is not None:
         sns.heatmap(df.corr(), annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
         st.pyplot(fig_corr)
 
-    # Fila Inferior: Importancia de Variables (Ancho completo)
     st.subheader("3. Variables Críticas (Análisis de IA)")
     st.caption("Factores que más influyen en el riesgo de muerte según el modelo.")
     
-    # Entrenamos modelo
     X = df.drop('DEATH_EVENT', axis=1)
     y = df['DEATH_EVENT']
     model = RandomForestClassifier(n_estimators=100, random_state=42)
     model.fit(X, y)
     
-    # Preparamos datos para gráfica estilo original
     feat_importances = pd.DataFrame(model.feature_importances_, index=X.columns, columns=['importance'])
     feat_importances = feat_importances.sort_values('importance', ascending=False)
     
@@ -86,10 +84,21 @@ if uploaded_file is not None:
         vivos['Riesgo_Principal'] = vivos.apply(determinar_riesgo, axis=1)
         conteo_riesgos = vivos['Riesgo_Principal'].value_counts()
         
+        # --- NUEVA GRÁFICA: DISTRIBUCIÓN DE EDADES (VIVOS) ---
+        st.subheader("1. Distribución de Edades (Pacientes Vivos)")
+        fig_hist_v, ax = plt.subplots(figsize=(8, 3))
+        # Usamos color verde (forestgreen) para diferenciar de los fallecidos (rojo)
+        sns.histplot(vivos['age'], kde=True, color='forestgreen', bins=15, ax=ax)
+        ax.set_xlabel("Edad")
+        ax.set_ylabel("Frecuencia")
+        st.pyplot(fig_hist_v)
+        
+        st.markdown("---")
+
         col_v_graf, col_v_data = st.columns([1, 2])
         
         with col_v_graf:
-            st.subheader("Patologías Activas")
+            st.subheader("2. Patologías Activas")
             fig_pie_v, ax = plt.subplots()
             colors = sns.color_palette('pastel')[0:len(conteo_riesgos)]
             ax.pie(conteo_riesgos, labels=conteo_riesgos.index, autopct='%1.1f%%', startangle=90, colors=colors)
@@ -98,7 +107,7 @@ if uploaded_file is not None:
             
         with col_v_data:
             st.metric("Total Pacientes en Seguimiento", len(vivos))
-            st.subheader("🩺 Diagnóstico y Tratamiento Sugerido")
+            st.subheader("3. Diagnóstico y Tratamiento Sugerido")
             
             for index, row in vivos.iterrows():
                 recommendations = []
@@ -139,6 +148,8 @@ if uploaded_file is not None:
         sns.histplot(fallecidos['age'], kde=True, color='darkred', bins=15, ax=ax)
         st.pyplot(fig_hist)
 
+        st.markdown("---")
+
         col_pastel, col_datos = st.columns([1, 1])
 
         with col_pastel:
@@ -154,6 +165,3 @@ if uploaded_file is not None:
             for causa, cantidad in conteo_causas.items():
                 with st.expander(f"📂 {causa}: {cantidad} pacientes"):
                     st.table(fallecidos[fallecidos['Causa_Probable'] == causa][['age', 'sex', 'diabetes']].head(5))
-
-else:
-    st.info("Esperando archivo CSV...")
