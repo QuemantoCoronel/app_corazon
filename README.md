@@ -20,7 +20,7 @@ TRUJILLO-PERÚ 2025
 
 1. Resumen Ejecutivo
    
-El proyecto "CardioGuard AI" nace de la necesidad de mejorar la tasa de supervivencia en pacientes con insuficiencia cardíaca. Mediante el uso de algoritmos de Machine Learning (Random Forest) y una interfaz accesible vía web/móvil, se ha desarrollado una herramienta capaz de predecir la probabilidad de fallecimiento y sugerir tratamientos personalizados en tiempo real.
+El proyecto "CardioGuard AI" nace de la necesidad de mejorar la tasa de supervivencia en pacientes con insuficiencia cardíaca. Mediante el uso de algoritmos de Machine Learning (Random Forest) y una interfaz accesible vía web/móvil, se ha desarrollado una herramienta capaz de predecir la probabilidad de fallecimiento y sugerir tratamientos personalizados en tiempo real. El uso del archivo CSV proporcionado es esencial para el correcto funcionamiento de la aplicación, en el futuro se planea agregar la capacidad de usar CSVs distintas.
 
 2. Definición del Problema y Alcance
 
