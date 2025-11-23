@@ -51,3 +51,5 @@ La aplicación demostró capacidad para clasificar correctamente a los pacientes
 6. Conclusión
 
 CardioGuard AI cumple con el objetivo de proveer una solución distribuida y accesible. Transforma datos clínicos crudos en inteligencia accionable, permitiendo al personal médico actuar antes de que ocurra un evento fatal, alineándose con los estándares modernos de la Medicina de Precisión.
+
+Link del programa en WEB: https://appcorazon-dlyn2varauf5mrnw4kpn9o.streamlit.app/ (Aqui es donde se usa el archivo CSV proporcionado)
