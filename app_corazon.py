@@ -56,18 +56,30 @@ if uploaded_file is not None:
     
     st.warning(f"⚠️ Se han detectado **{len(high_risk_patients)} pacientes** con indicadores de alto riesgo.")
     
-    # Generador de Reporte
-    with st.expander("Ver Recomendaciones Detalladas"):
-        for index, row in high_risk_patients.head(5).iterrows(): # Mostramos 5 ejemplos
+  # Generador de Reporte
+    with st.expander(f"Ver Recomendaciones Detalladas ({len(high_risk_patients)} casos detectados)"):
+        
+        # 1. Tabla Resumen (Mejor para analizar muchos datos de golpe)
+        st.write("### 📋 Tabla de Pacientes en Riesgo")
+        st.dataframe(high_risk_patients)
+        
+        # 2. Lista Detallada (Uno por uno)
+        st.write("### 🩺 Análisis Individual")
+        for index, row in high_risk_patients.iterrows(): 
             reasons = []
             if row['serum_creatinine'] > risk_creatinine:
-                reasons.append(f"Creatinina Alta ({row['serum_creatinine']} mg/dL -> Revisar función renal)")
+                reasons.append(f"Creatinina Alta ({row['serum_creatinine']} mg/dL)")
             if row['ejection_fraction'] < risk_ejection:
-                reasons.append(f"Fracción de Eyección Baja ({row['ejection_fraction']}% -> Evaluar terapia inotrópica)")
+                reasons.append(f"Fracción de Eyección Baja ({row['ejection_fraction']}%)")
             
-            st.markdown(f"**Paciente #{index} (Edad: {int(row['age'])})**")
-            st.info(f"👉 Acción sugerida: {', '.join(reasons)}")
+            # Usamos un estilo diferente si el paciente falleció (dato histórico)
+            estado = "🔴 Fallecido" if row['DEATH_EVENT'] == 1 else "🟢 Vivo"
+            
+            st.markdown(f"**Paciente ID #{index}** (Edad: {int(row['age'])}) - {estado}")
+            st.info(f"👉 Factores de riesgo: {', '.join(reasons)}")
+            st.markdown("---") # Una línea separadora
 
 else:
 
     st.info("Esperando archivo CSV... Por favor cargue la base de datos para iniciar.")
+
