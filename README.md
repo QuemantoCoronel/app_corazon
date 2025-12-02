@@ -1,7 +1,5 @@
 # CardioGuard AI: Sistema Clínico Inteligente
 
-**Proyecto CardioGuard AI** es una herramienta de análisis clínico basada en inteligencia artificial diseñada para ayudar a los médicos a predecir riesgos cardíacos en pacientes. Utilizando un conjunto de datos clínicos de fallas cardíacas, el sistema evalúa múltiples factores para clasificar el riesgo y las causas de muerte de los pacientes, proporcionando diagnósticos y recomendaciones de tratamiento.
-
 ## Autores:
 
 - Albitres Dávila, Juan
@@ -23,6 +21,23 @@
 ## Resumen Ejecutivo
    
 El proyecto "CardioGuard AI" nace de la necesidad de mejorar la tasa de supervivencia en pacientes con insuficiencia cardíaca. Mediante el uso de algoritmos de Machine Learning (Random Forest) y una interfaz accesible vía web/móvil, se ha desarrollado una herramienta capaz de predecir la probabilidad de fallecimiento y sugerir tratamientos personalizados en tiempo real. El uso del archivo CSV proporcionado es esencial para el correcto funcionamiento de la aplicación, en el futuro se planea agregar la capacidad de usar CSVs distintas.
+
+### Variables del Dataset
+El conjunto de datos contiene diversas variables clínicas que ayudan a predecir la insuficiencia cardíaca:
+
+- **Edad**: Edad del paciente.
+- **Anemia**: Si el paciente presenta anemia (disminución de glóbulos rojos o hemoglobina).
+- **Creatinina**: Nivel de creatinina en sangre, indicador de posibles lesiones.
+- **Diabetes**: Si el paciente tiene diabetes.
+- **Fracción de Eyección**: Porcentaje de sangre que sale del corazón en cada contracción.
+- **Hipertensión Arterial**: Si el paciente tiene antecedentes de hipertensión.
+- **Plaquetas**: Nivel de plaquetas en sangre.
+- **Creatinina Sérica**: Mide la función renal.
+- **Sodio Sérico**: Mide el equilibrio electrolítico en los vasos sanguíneos.
+- **Sexo**: Sexo del paciente.
+- **Tabaquismo**: Si el paciente fuma o no.
+- **Tiempo**: Período de seguimiento (días).
+- **Evento de Fallecimiento**: Si el paciente falleció durante el seguimiento.
 
 ## Definición del Problema y Alcance
 
@@ -71,3 +86,5 @@ Link del programa en WEB: https://appcorazon-dlyn2varauf5mrnw4kpn9o.streamlit.ap
     ```
     streamlit run app_corazon.py
     ```
+## Citation
+- Davide Chicco, Giuseppe Jurman
