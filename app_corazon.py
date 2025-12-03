@@ -59,7 +59,6 @@ if dataset_loaded:
     st.subheader("3. Variables Críticas (Análisis de IA)")
     st.caption("Factores que más influyen en el riesgo de muerte según el modelo.")
     
-    # Modelado de Predicción
     X = df.drop('DEATH_EVENT', axis=1)
     y = df['DEATH_EVENT']
     model = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -85,10 +84,8 @@ if dataset_loaded:
         vivos['Riesgo_Principal'] = vivos.apply(determinar_riesgo, axis=1)
         conteo_riesgos = vivos['Riesgo_Principal'].value_counts()
         
-        # --- NUEVA GRÁFICA: DISTRIBUCIÓN DE EDADES (VIVOS) ---
         st.subheader("1. Distribución de Edades (Pacientes Vivos)")
         fig_hist_v, ax = plt.subplots(figsize=(8, 3))
-        # Usamos color verde (forestgreen) para diferenciar de los fallecidos (rojo)
         sns.histplot(vivos['age'], kde=True, color='forestgreen', bins=15, ax=ax)
         ax.set_xlabel("Edad")
         ax.set_ylabel("Frecuencia")
@@ -100,53 +97,43 @@ if dataset_loaded:
         
         with col_v_graf:
             st.subheader("2. Patologías Activas")
-            fig_pie_v, ax = plt.subplots(figsize=(6, 6))  # Ajustar el tamaño del gráfico para mejor visibilidad
-            colors = sns.color_palette('Set3')[0:len(conteo_riesgos)]  # Cambiar a paleta Set3 para colores más suaves
-            wedges, texts, autotexts = ax.pie(conteo_riesgos, 
-                                            labels=conteo_riesgos.index, 
-                                            autopct='%1.1f%%', 
-                                            startangle=90, 
-                                            colors=colors, 
-                                            textprops={'color':"black", 'fontsize':12},  # Estilo de texto
-                                            wedgeprops={'edgecolor': 'black'})  # Añadir borde negro para mejor definición
-            ax.axis('equal')  # Hace que el gráfico sea circular
-            plt.setp(autotexts, size=12, weight="bold", color="white")  # Mejorar visibilidad del porcentaje
+            fig_pie_v, ax = plt.subplots()
+            colors = sns.color_palette('pastel')[0:len(conteo_riesgos)]
+            ax.pie(conteo_riesgos, labels=conteo_riesgos.index, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'color':"black"})
+            ax.axis('equal')
             st.pyplot(fig_pie_v)
             
         with col_v_data:
             st.metric("Total Pacientes en Seguimiento", len(vivos))
-
-        # Mover "Diagnóstico y Tratamiento Sugerido" debajo del gráfico
-        st.subheader("3. Diagnóstico y Tratamiento Sugerido")
-
-        # Mostrar diagnóstico y tratamiento sugerido para los primeros pacientes
-        for index, row in vivos.iterrows():
-            recommendations = []
-            if row['serum_creatinine'] > 1.4:
-                recommendations.append({
-                    "area": "Riñones",
-                    "diag": f"Creatinina elevada ({row['serum_creatinine']} mg/dL). Posible daño renal agudo.",
-                    "sol": "Solicitar ecografía renal y ajustar dosis de medicamentos nefrotóxicos."
-                })
-            if row['ejection_fraction'] < 30:
-                recommendations.append({
-                    "area": "Corazón",
-                    "diag": f"Fracción de eyección crítica ({row['ejection_fraction']}%).",
-                    "sol": "Evaluar implante de dispositivo (DAI) o terapia de resincronización."
-                })
-            if row['high_blood_pressure'] == 1:
-                recommendations.append({
-                    "area": "Presión Arterial",
-                    "diag": "Hipertensión arterial sistémica detectada.",
-                    "sol": "Revisar adherencia al tratamiento antihipertensivo y dieta baja en sodio."
-                })
+            st.subheader("3. Diagnóstico y Tratamiento Sugerido")
             
-            if recommendations:
-                with st.expander(f"Paciente #{index} (Edad: {int(row['age'])}) - {row['Riesgo_Principal']}"):
-                    for rec in recommendations:
-                        st.markdown(f"**⚠️ Diagnóstico ({rec['area']}):** {rec['diag']}")
-                        st.info(f"💡 **Solución:** {rec['sol']}")
-                        st.markdown("---")
+            for index, row in vivos.iterrows():
+                recommendations = []
+                if row['serum_creatinine'] > 1.4:
+                    recommendations.append({
+                        "area": "Riñones",
+                        "diag": f"Creatinina elevada ({row['serum_creatinine']} mg/dL). Posible daño renal agudo.",
+                        "sol": "Solicitar ecografía renal y ajustar dosis de medicamentos nefrotóxicos."
+                    })
+                if row['ejection_fraction'] < 30:
+                    recommendations.append({
+                        "area": "Corazón",
+                        "diag": f"Fracción de eyección crítica ({row['ejection_fraction']}%).",
+                        "sol": "Evaluar implante de dispositivo (DAI) o terapia de resincronización."
+                    })
+                if row['high_blood_pressure'] == 1:
+                    recommendations.append({
+                        "area": "Presión Arterial",
+                        "diag": "Hipertensión arterial sistémica detectada.",
+                        "sol": "Revisar adherencia al tratamiento antihipertensivo y dieta baja en sodio."
+                    })
+                
+                if recommendations:
+                    with st.expander(f"Paciente #{index} (Edad: {int(row['age'])}) - {row['Riesgo_Principal']}"):
+                        for rec in recommendations:
+                            st.markdown(f"**⚠️ Diagnóstico ({rec['area']}):** {rec['diag']}")
+                            st.info(f"💡 **Solución:** {rec['sol']}")
+                            st.markdown("---")
 
     # --- PESTAÑA 2: FALLECIDOS ---
     with tab_fallecidos:
