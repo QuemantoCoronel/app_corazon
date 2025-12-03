@@ -61,7 +61,6 @@ if dataset_loaded:
         
         with col_sys2:
             st.write("🔄 **Procesando Votación Paralela...**")
-            # Ejecución Paralela (Thread Pool)
             modelos = {
                 "Nodo 1 (Random Forest)": RandomForestClassifier(n_estimators=50),
                 "Nodo 2 (Logistic Reg)": LogisticRegression(max_iter=1000),
@@ -81,7 +80,6 @@ if dataset_loaded:
                         st.metric(label=nombre, value=f"{acc:.1%}", delta="Completado")
                     idx += 1
             
-            # El modelo maestro (Main) elige al mejor para mostrar las importancias
             mejor_modelo_nombre = max(resultados_nodos, key=resultados_nodos.get)
             st.success(f"✅ Consenso alcanzado. Nodo Maestro seleccionado: **{mejor_modelo_nombre}**")
 
@@ -105,9 +103,8 @@ if dataset_loaded:
         sns.heatmap(df.corr(), annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
         st.pyplot(fig_corr)
 
-    # Importancia de Variables (Usando el Random Forest del Nodo 1 para visualización)
     st.subheader("3. Variables Críticas (Votación del Nodo 1)")
-    rf_model = modelos["Nodo 1 (Random Forest)"] # Recuperamos el modelo entrenado
+    rf_model = modelos["Nodo 1 (Random Forest)"]
     feat_importances = pd.DataFrame(rf_model.feature_importances_, index=X.columns, columns=['importance'])
     feat_importances = feat_importances.sort_values('importance', ascending=False)
     
@@ -124,6 +121,8 @@ if dataset_loaded:
     # --- PESTAÑA 1: VIVOS ---
     with tab_vivos:
         vivos = df[df['DEATH_EVENT'] == 0].copy()
+        vivos['age'] = vivos['age'].astype(int)
+        
         vivos['Riesgo_Principal'] = vivos.apply(determinar_riesgo, axis=1)
         conteo_riesgos = vivos['Riesgo_Principal'].value_counts()
         
@@ -155,7 +154,7 @@ if dataset_loaded:
                     recommendations.append({"area": "Presión", "diag": "Hipertensión detectada.", "sol": "Revisar dieta hiposódica."})
                 
                 if recommendations:
-                    with st.expander(f"Paciente #{index} (Edad: {int(row['age'])}) - {row['Riesgo_Principal']}"):
+                    with st.expander(f"Paciente #{index} (Edad: {row['age']}) - {row['Riesgo_Principal']}"):
                         for rec in recommendations:
                             st.markdown(f"**⚠️ {rec['diag']}**")
                             st.info(f"💡 {rec['sol']}")
@@ -163,6 +162,8 @@ if dataset_loaded:
     # --- PESTAÑA 2: FALLECIDOS ---
     with tab_fallecidos:
         fallecidos = df[df['DEATH_EVENT'] == 1].copy()
+        fallecidos['age'] = fallecidos['age'].astype(int)
+        
         fallecidos['Causa_Probable'] = fallecidos.apply(determinar_causa, axis=1)
         conteo_causas = fallecidos['Causa_Probable'].value_counts()
 
