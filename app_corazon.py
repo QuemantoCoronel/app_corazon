@@ -151,19 +151,39 @@ if dataset_loaded:
         
         # --- AQUÍ ESTÁ EL CAMBIO PARA EL SCROLL ---
         with col_v1:
-            st.subheader(f"Diagnóstico Individual ({len(vivos)} pacientes)")
+            # --- BUSCADOR (NUEVO) ---
+            st.subheader("Diagnóstico Individual")
             
-            # st.container(height=500) crea una caja de 500px de alto con scroll automático
+            # Input de texto para buscar
+            search_term = st.text_input("🔍 Buscar por diagnóstico:", placeholder="Ej: Renal, Diabetes, Insuficiencia...")
+
+            # Lógica de filtrado:
+            if search_term:
+                # Filtramos si el texto del riesgo contiene la palabra buscada (case=False ignora mayúsculas)
+                vivos_filtrados = vivos[vivos['Riesgo_Principal'].str.contains(search_term, case=False, na=False)]
+            else:
+                # Si no escriben nada, mostramos todos
+                vivos_filtrados = vivos
+
+            st.caption(f"Mostrando {len(vivos_filtrados)} pacientes")
+            
+            # --- LISTA CON SCROLL ---
+            # Usamos st.container para crear la caja con scroll
             with st.container(height=500, border=True):
-                # Quitamos .head() para mostrar TODOS los pacientes
-                for index, row in vivos.iterrows():
-                    # Definimos un icono según el riesgo para que se vea más bonito
+                
+                # Si el filtro no devuelve nada, mostramos aviso
+                if len(vivos_filtrados) == 0:
+                    st.warning("No se encontraron pacientes con ese diagnóstico.")
+                
+                # Iteramos sobre la lista FILTRADA (vivos_filtrados)
+                for index, row in vivos_filtrados.iterrows():
+                    # Icono dinámico
                     icono = "⚠️" if "Alto" in row['Riesgo_Principal'] or "Severa" in row['Riesgo_Principal'] else "ℹ️"
                     
                     with st.expander(f"{icono} Paciente #{index} - {row['Riesgo_Principal']}"):
                         st.markdown(f"**Edad:** {int(row['age'])} años | **Creatinina:** {row['serum_creatinine']}")
                         
-                        # Lógica de alertas visuales dentro de la tarjeta
+                        # Alertas visuales internas
                         if row['serum_creatinine'] > 1.4: 
                             st.error(f"🚨 **Alerta Renal:** Nivel {row['serum_creatinine']} mg/dL (Alto)")
                         if row['ejection_fraction'] < 30:
