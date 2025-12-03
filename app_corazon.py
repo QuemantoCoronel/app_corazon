@@ -2,13 +2,59 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
+import time
 
-# Configuración de página
-st.set_page_config(page_title="CardioGuard AI", layout="wide")
-st.title("❤️ CardioGuard AI: Sistema Clínico Inteligente")
+# Librerías para Machine Learning
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 
-# --- FUNCIONES DE CLASIFICACIÓN ---
+# --- LIBRERÍA PARA PARALELISMO (El "Motor" del Maestro-Esclavo) ---
+from concurrent.futures import ProcessPoolExecutor
+
+# Configuración de página (Debe ser siempre la primera línea)
+st.set_page_config(page_title="CardioGuard AI - Parallel", layout="wide")
+
+# --- FUNCIONES DE LOS ESCLAVOS (WORKERS) ---
+def worker_train_model(model_name, X_train, y_train, X_test, y_test):
+    """
+    Función Esclavo: Recibe datos, entrena un modelo específico y retorna resultados.
+    """
+    start_time = time.time()
+    
+    # Selección del modelo según la orden del Maestro
+    if model_name == "Random Forest":
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+    elif model_name == "Gradient Boosting":
+        model = GradientBoostingClassifier(random_state=42)
+    elif model_name == "Logistic Regression":
+        model = LogisticRegression(max_iter=1000, random_state=42)
+        
+    # Entrenamiento
+    model.fit(X_train, y_train)
+    
+    # Predicción y Evaluación
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    
+    # Extraer importancia
+    feature_importance = None
+    if hasattr(model, 'feature_importances_'):
+        feature_importance = model.feature_importances_
+    elif hasattr(model, 'coef_'):
+        feature_importance = model.coef_[0]
+        
+    end_time = time.time()
+    
+    return {
+        "model": model_name,
+        "accuracy": accuracy,
+        "time": end_time - start_time,
+        "importance": feature_importance
+    }
+
+# --- FUNCIONES DE LÓGICA CLÍNICA ---
 def determinar_causa(row):
     if row['serum_creatinine'] >= 1.8: return "Falla Renal Severa"
     elif row['ejection_fraction'] < 30: return "Falla Cardíaca (Bajo Bombeo)"
@@ -25,154 +71,122 @@ def determinar_riesgo(row):
     elif row['diabetes'] == 1:          return "Diabetes"
     else:                               return "Bajo Riesgo Aparente"
 
-# --- CARGA AUTOMÁTICA DE DATOS ---
+# --- INTERFAZ PRINCIPAL (EL MAESTRO) ---
+st.title("❤️ CardioGuard AI: Sistema Paralelo de Diagnóstico")
+st.markdown("**Arquitectura:** Maestro-Esclavo | **Motor:** Multiprocessing")
+
+# Carga de Datos
 try:
     df = pd.read_csv("heart_failure_clinical_records_dataset.csv")
     dataset_loaded = True
 except FileNotFoundError:
-    st.error("❌ Error: No se encontró el archivo CSV en el repositorio.")
-    st.info("Asegúrate de subir 'heart_failure_clinical_records_dataset.csv' a GitHub junto con este código.")
+    st.error("❌ Error: Sube el archivo 'heart_failure_clinical_records_dataset.csv'.")
     dataset_loaded = False
 
 if dataset_loaded:
-    # --- SECCIÓN 1: GRÁFICAS GLOBALES ---
-    st.header("📊 Análisis Global de Datos")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("1. Distribución de Desenlace")
-        st.caption("Comparativa: Pacientes Vivos vs Fallecidos")
-        fig_dist, ax = plt.subplots(figsize=(6, 5))
-        sns.countplot(x='DEATH_EVENT', data=df, palette='viridis', ax=ax)
-        ax.set_xlabel("Estado (0: Vivo, 1: Fallecido)")
-        ax.set_ylabel("Cantidad de Pacientes")
-        st.pyplot(fig_dist)
-
-    with col2:
-        st.subheader("2. Mapa de Calor (Correlaciones)")
-        st.caption("Relación numérica entre variables")
-        fig_corr, ax = plt.subplots(figsize=(10, 8))
-        sns.heatmap(df.corr(), annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
-        st.pyplot(fig_corr)
-
-    st.subheader("3. Variables Críticas (Análisis de IA)")
-    st.caption("Factores que más influyen en el riesgo de muerte según el modelo.")
-    
-    # Modelado de Predicción
+    # Preparación de datos
     X = df.drop('DEATH_EVENT', axis=1)
     y = df['DEATH_EVENT']
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
-    model.fit(X, y)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # --- SECCIÓN DE CÓMPUTO PARALELO ---
+    st.header("🧠 Entrenamiento de Modelos (Paralelo)")
     
-    feat_importances = pd.DataFrame(model.feature_importances_, index=X.columns, columns=['importance'])
-    feat_importances = feat_importances.sort_values('importance', ascending=False)
+    col_ctrl, col_display = st.columns([1, 3])
     
-    fig_imp, ax = plt.subplots(figsize=(10, 4))
-    sns.barplot(x=feat_importances.importance, y=feat_importances.index, palette='viridis', ax=ax)
-    ax.set_xlabel("Nivel de Importancia")
-    st.pyplot(fig_imp)
+    with col_ctrl:
+        st.info("El sistema lanzará 3 procesos esclavos simultáneos.")
+        run_parallel = st.button("🚀 Iniciar Entrenamiento Paralelo")
+    
+    if run_parallel:
+        with st.spinner("El Maestro está distribuyendo tareas a los núcleos..."):
+            modelos_a_entrenar = ["Random Forest", "Gradient Boosting", "Logistic Regression"]
+            
+            results = []
+            start_global = time.time()
+            
+            with ProcessPoolExecutor() as executor:
+                futures = [
+                    executor.submit(worker_train_model, m, X_train, y_train, X_test, y_test) 
+                    for m in modelos_a_entrenar
+                ]
+                for f in futures:
+                    results.append(f.result())
+            
+            end_global = time.time()
+
+            st.success(f"Entrenamiento completado en {end_global - start_global:.4f} segundos.")
+            
+            res_df = pd.DataFrame(results).set_index("model")
+            
+            col_m1, col_m2, col_m3 = st.columns(3)
+            col_m1.metric("Mejor Modelo", res_df['accuracy'].idxmax())
+            col_m2.metric("Precisión", f"{res_df['accuracy'].max():.2%}")
+            col_m3.metric("Tiempo Total CPU", f"{res_df['time'].sum():.4f}s")
+            
+            with col_display:
+                st.bar_chart(res_df['accuracy'])
+
+            best_model_data = next(item for item in results if item["model"] == "Random Forest")
+            feat_importances = pd.DataFrame(best_model_data['importance'], index=X.columns, columns=['importance'])
+            feat_importances = feat_importances.sort_values('importance', ascending=False)
+            
+            st.subheader("Variables Críticas (Del Modelo Random Forest)")
+            fig_imp, ax = plt.subplots(figsize=(10, 3))
+            sns.barplot(x=feat_importances.importance, y=feat_importances.index, palette='viridis', ax=ax)
+            st.pyplot(fig_imp)
 
     st.markdown("---")
 
     # --- SECCIÓN 2: GESTIÓN DE PACIENTES ---
     st.header("👥 Gestión de Pacientes")
-    tab_vivos, tab_fallecidos = st.tabs(["🟢 Pacientes Vivos (Prevención)", "🔴 Análisis de Defunciones"])
+    tab_vivos, tab_fallecidos = st.tabs(["🟢 Pacientes Vivos", "🔴 Análisis de Defunciones"])
 
-    # --- PESTAÑA 1: VIVOS ---
     with tab_vivos:
+        # Filtramos SOLO los vivos
         vivos = df[df['DEATH_EVENT'] == 0].copy()
         vivos['Riesgo_Principal'] = vivos.apply(determinar_riesgo, axis=1)
-        conteo_riesgos = vivos['Riesgo_Principal'].value_counts()
         
-        # --- NUEVA GRÁFICA: DISTRIBUCIÓN DE EDADES (VIVOS) ---
-        st.subheader("1. Distribución de Edades (Pacientes Vivos)")
-        fig_hist_v, ax = plt.subplots(figsize=(8, 3))
-        # Usamos color verde (forestgreen) para diferenciar de los fallecidos (rojo)
-        sns.histplot(vivos['age'], kde=True, color='forestgreen', bins=15, ax=ax)
-        ax.set_xlabel("Edad")
-        ax.set_ylabel("Frecuencia")
-        st.pyplot(fig_hist_v)
+        col_v1, col_v2 = st.columns([2, 1])
         
-        st.markdown("---")
-
-        col_v_graf, col_v_data = st.columns([1, 2])
-        
-        with col_v_graf:
-            st.subheader("2. Patologías Activas")
-            fig_pie_v, ax = plt.subplots(figsize=(6, 6))  # Ajustar el tamaño del gráfico para mejor visibilidad
-            colors = sns.color_palette('Set3')[0:len(conteo_riesgos)]  # Cambiar a paleta Set3 para colores más suaves
-            wedges, texts, autotexts = ax.pie(conteo_riesgos, 
-                                            labels=conteo_riesgos.index, 
-                                            autopct='%1.1f%%', 
-                                            startangle=90, 
-                                            colors=colors, 
-                                            textprops={'color':"black", 'fontsize':12},  # Estilo de texto
-                                            wedgeprops={'edgecolor': 'black'})  # Añadir borde negro para mejor definición
-            ax.axis('equal')  # Hace que el gráfico sea circular
-            plt.setp(autotexts, size=12, weight="bold", color="white")  # Mejorar visibilidad del porcentaje
-            st.pyplot(fig_pie_v)
+        # --- AQUÍ ESTÁ EL CAMBIO PARA EL SCROLL ---
+        with col_v1:
+            st.subheader(f"Diagnóstico Individual ({len(vivos)} pacientes)")
             
-        with col_v_data:
-            st.metric("Total Pacientes en Seguimiento", len(vivos))
-
-        # Mover "Diagnóstico y Tratamiento Sugerido" debajo del gráfico
-        st.subheader("3. Diagnóstico y Tratamiento Sugerido")
-
-        # Mostrar diagnóstico y tratamiento sugerido para los primeros pacientes
-        for index, row in vivos.iterrows():
-            recommendations = []
-            if row['serum_creatinine'] > 1.4:
-                recommendations.append({
-                    "area": "Riñones",
-                    "diag": f"Creatinina elevada ({row['serum_creatinine']} mg/dL). Posible daño renal agudo.",
-                    "sol": "Solicitar ecografía renal y ajustar dosis de medicamentos nefrotóxicos."
-                })
-            if row['ejection_fraction'] < 30:
-                recommendations.append({
-                    "area": "Corazón",
-                    "diag": f"Fracción de eyección crítica ({row['ejection_fraction']}%).",
-                    "sol": "Evaluar implante de dispositivo (DAI) o terapia de resincronización."
-                })
-            if row['high_blood_pressure'] == 1:
-                recommendations.append({
-                    "area": "Presión Arterial",
-                    "diag": "Hipertensión arterial sistémica detectada.",
-                    "sol": "Revisar adherencia al tratamiento antihipertensivo y dieta baja en sodio."
-                })
+            # st.container(height=500) crea una caja de 500px de alto con scroll automático
+            with st.container(height=500, border=True):
+                # Quitamos .head() para mostrar TODOS los pacientes
+                for index, row in vivos.iterrows():
+                    # Definimos un icono según el riesgo para que se vea más bonito
+                    icono = "⚠️" if "Alto" in row['Riesgo_Principal'] or "Severa" in row['Riesgo_Principal'] else "ℹ️"
+                    
+                    with st.expander(f"{icono} Paciente #{index} - {row['Riesgo_Principal']}"):
+                        st.markdown(f"**Edad:** {int(row['age'])} años | **Creatinina:** {row['serum_creatinine']}")
+                        
+                        # Lógica de alertas visuales dentro de la tarjeta
+                        if row['serum_creatinine'] > 1.4: 
+                            st.error(f"🚨 **Alerta Renal:** Nivel {row['serum_creatinine']} mg/dL (Alto)")
+                        if row['ejection_fraction'] < 30:
+                            st.error(f"💔 **Corazón:** Bombeo crítico del {row['ejection_fraction']}%")
+                        if row['high_blood_pressure'] == 1:
+                            st.warning("🩸 **Presión:** Paciente Hipertenso")
+                            
+        # -------------------------------------------
+        
+        with col_v2:
+            st.subheader("Resumen de Riesgos")
+            st.caption("Distribución total de patologías")
+            conteo = vivos['Riesgo_Principal'].value_counts()
             
-            if recommendations:
-                with st.expander(f"Paciente #{index} (Edad: {int(row['age'])}) - {row['Riesgo_Principal']}"):
-                    for rec in recommendations:
-                        st.markdown(f"**⚠️ Diagnóstico ({rec['area']}):** {rec['diag']}")
-                        st.info(f"💡 **Solución:** {rec['sol']}")
-                        st.markdown("---")
+            # Gráfico de pastel mejorado
+            fig_p, ax = plt.subplots(figsize=(5, 5))
+            ax.pie(conteo, labels=None, autopct='%1.1f%%', startangle=90, colors=sns.color_palette("pastel"))
+            ax.legend(conteo.index, loc="best", bbox_to_anchor=(1, 0.5))
+            st.pyplot(fig_p)
 
-    # --- PESTAÑA 2: FALLECIDOS ---
     with tab_fallecidos:
+        st.info("Visualización de patrones en pacientes fallecidos (Histórico)")
         fallecidos = df[df['DEATH_EVENT'] == 1].copy()
         fallecidos['Causa_Probable'] = fallecidos.apply(determinar_causa, axis=1)
-        conteo_causas = fallecidos['Causa_Probable'].value_counts()
-
-        st.subheader("1. Distribución de Edades al Fallecer")
-        fig_hist, ax = plt.subplots(figsize=(8, 3))
-        sns.histplot(fallecidos['age'], kde=True, color='darkred', bins=15, ax=ax)
-        st.pyplot(fig_hist)
-
-        st.markdown("---")
-
-        col_pastel, col_datos = st.columns([1, 1])
-
-        with col_pastel:
-            st.subheader("2. Causas Probables")
-            fig_pie, ax = plt.subplots()
-            colors = sns.color_palette('Set2')[0:len(conteo_causas)]
-            ax.pie(conteo_causas, labels=conteo_causas.index, autopct='%1.1f%%', startangle=90, colors=colors)
-            ax.axis('equal')  
-            st.pyplot(fig_pie)
-
-        with col_datos:
-            st.subheader("3. Detalle por Grupo")
-            for causa, cantidad in conteo_causas.items():
-                with st.expander(f"📂 {causa}: {cantidad} pacientes"):
-                    st.table(fallecidos[fallecidos['Causa_Probable'] == causa][['age', 'sex', 'diabetes']].head(5))
+        
+        st.bar_chart(fallecidos['Causa_Probable'].value_counts())

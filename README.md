@@ -20,7 +20,7 @@
 
 ## Resumen Ejecutivo
    
-El proyecto "CardioGuard AI" nace de la necesidad de mejorar la tasa de supervivencia en pacientes con insuficiencia cardíaca. Mediante el uso de algoritmos de Machine Learning (Random Forest) y una interfaz accesible vía web/móvil, se ha desarrollado una herramienta capaz de predecir la probabilidad de fallecimiento y sugerir tratamientos personalizados en tiempo real. El uso del archivo CSV proporcionado es esencial para el correcto funcionamiento de la aplicación, en el futuro se planea agregar la capacidad de usar CSVs distintas.
+El proyecto "CardioGuard AI" nace de la necesidad de mejorar la tasa de supervivencia en pacientes con insuficiencia cardíaca. Mediante el uso de algoritmos de Machine Learning (Random Forest) y una interfaz accesible vía web, se ha desarrollado una herramienta capaz de predecir la probabilidad de fallecimiento y sugerir tratamientos personalizados en tiempo real. El uso del archivo CSV proporcionado es esencial para el correcto funcionamiento de la aplicación, en el futuro se planea agregar la capacidad de usar CSVs distintas.
 
 ### Variables del Dataset
 El conjunto de datos contiene diversas variables clínicas que ayudan a predecir la insuficiencia cardíaca:
@@ -86,5 +86,5 @@ Link del programa en WEB: https://appcorazon-dlyn2varauf5mrnw4kpn9o.streamlit.ap
     ```
     streamlit run app_corazon.py
     ```
-## Citation
+## Autor DataSet [Heart Failure Prediction](https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data)
 - Davide Chicco, Giuseppe Jurman
