@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import plotly.express as px  # IMPORTANTE: Usamos Plotly para gráficos interactivos
+import plotly.express as px
 import concurrent.futures
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -81,33 +81,52 @@ if dataset_loaded:
 
     st.markdown("---")
 
-    # --- FRONTEND CLÍNICO ---
+    # --- FRONTEND CLÍNICO: SECCIÓN GLOBAL ---
     st.header("📊 Análisis Global de Datos")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("1. Distribución de Desenlace")
-        st.caption("Comparativa: Pacientes Vivos vs Fallecidos")
-        # Usamos Plotly aquí también para consistencia
-        fig_dist = px.histogram(df, x="DEATH_EVENT", color="DEATH_EVENT", 
-                                labels={"DEATH_EVENT": "Estado (0:Vivo, 1:Fallecido)"},
-                                color_discrete_map={0: "green", 1: "red"})
-        st.plotly_chart(fig_dist, use_container_width=True)
+    
+    # Pestañas Superiores
+    tab_global_1, tab_global_2, tab_global_3 = st.tabs([
+        "📉 Distribución General", 
+        "🔥 Mapa de Calor Clínico", 
+        "🧠 Variables Críticas" 
+    ])
 
-    with col2:
-        st.subheader("2. Mapa de Calor (Correlaciones)")
-        st.caption("Relación numérica entre variables")
-        fig_corr, ax = plt.subplots(figsize=(10, 8))
-        sns.heatmap(df.corr(), annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
+    # Pestaña 1: Distribuciones
+    with tab_global_1:
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            st.subheader("Pacientes Vivos vs Fallecidos")
+            fig_dist = px.histogram(df, x="DEATH_EVENT", color="DEATH_EVENT", 
+                                    labels={"DEATH_EVENT": "Estado (0:Vivo, 1:Fallecido)"},
+                                    color_discrete_map={0: "green", 1: "red"})
+            fig_dist.update_traces(marker_line_color='black', marker_line_width=1.5)
+            st.plotly_chart(fig_dist, use_container_width=True)
+        
+        with col_g2:
+            st.subheader("Distribución Global de Edades")
+            fig_age_global = px.histogram(df, x="age", nbins=20, color_discrete_sequence=['#3366cc'])
+            fig_age_global.update_traces(marker_line_color='black', marker_line_width=1.5)
+            st.plotly_chart(fig_age_global, use_container_width=True)
+
+    # Pestaña 2: Mapa de Calor
+    with tab_global_2:
+        st.subheader("Matriz de Correlación")
+        st.caption("Intensidad de relación entre variables clínicas.")
+        fig_corr, ax = plt.subplots(figsize=(12, 8))
+        sns.heatmap(df.corr(), annot=True, cmap='coolwarm', fmt=".2f", ax=ax, linewidths=0.5, linecolor='white')
         st.pyplot(fig_corr)
 
-    st.subheader("3. Variables Críticas (Votación del Nodo 1)")
-    rf_model = modelos["Nodo 1 (Random Forest)"]
-    feat_importances = pd.DataFrame(rf_model.feature_importances_, index=X.columns, columns=['importance'])
-    feat_importances = feat_importances.sort_values('importance', ascending=False)
-    
-    fig_imp, ax = plt.subplots(figsize=(10, 4))
-    sns.barplot(x=feat_importances.importance, y=feat_importances.index, palette='viridis', ax=ax)
-    st.pyplot(fig_imp)
+    # Pestaña 3: Importancia
+    with tab_global_3:
+        st.subheader("Variables Críticas")
+        rf_model = modelos["Nodo 1 (Random Forest)"]
+        feat_importances = pd.DataFrame(rf_model.feature_importances_, index=X.columns, columns=['importance'])
+        feat_importances = feat_importances.sort_values('importance', ascending=False)
+        
+        fig_imp, ax = plt.subplots(figsize=(12, 5))
+        sns.barplot(x=feat_importances.importance, y=feat_importances.index, palette='viridis', ax=ax, edgecolor="black", linewidth=1)
+        ax.grid(True, axis='x', linestyle='--', alpha=0.3)
+        st.pyplot(fig_imp)
 
     st.markdown("---")
 
@@ -131,25 +150,19 @@ if dataset_loaded:
         if not vivos.empty:
             subtab_lista, subtab_graficos = st.tabs(["📋 Lista de Diagnósticos", "📊 Ver Gráficas Interactivas"])
             
-            # LISTA
             with subtab_lista:
                 for index, row in vivos.iterrows():
                     recommendations = []
-                    # Reglas Generales
                     if row['serum_creatinine'] > 1.4:
                         recommendations.append({"area": "Riñones", "diag": f"Creatinina elevada ({row['serum_creatinine']}).", "sol": "Solicitar ecografía renal."})
                     if row['ejection_fraction'] < 30:
                         recommendations.append({"area": "Corazón", "diag": f"Eyección crítica ({row['ejection_fraction']}%).", "sol": "Evaluar terapia de resincronización."})
                     if row['high_blood_pressure'] == 1:
                         recommendations.append({"area": "Presión", "diag": "Hipertensión detectada.", "sol": "Revisar dieta hiposódica."})
-                    
-                    # Reglas Adicionales (PARA QUE APAREZCAN AL BUSCAR DIABETES O ANEMIA)
                     if row['diabetes'] == 1:
                          recommendations.append({"area": "Metabólico", "diag": "Paciente Diabético.", "sol": "Control glucémico estricto y revisión de pies."})
                     if row['anaemia'] == 1:
                          recommendations.append({"area": "Sangre", "diag": "Anemia detectada.", "sol": "Evaluar ferroterapia y dieta rica en hierro."})
-                    
-                    # Si no tiene nada grave, ponemos mensaje genérico para que SIEMPRE aparezca
                     if not recommendations:
                         recommendations.append({"area": "General", "diag": "Sin alertas críticas inmediatas.", "sol": "Continuar monitoreo de rutina."})
 
@@ -158,7 +171,6 @@ if dataset_loaded:
                             st.markdown(f"**⚠️ {rec['diag']}**")
                             st.info(f"💡 {rec['sol']}")
 
-            # GRÁFICAS INTERACTIVAS (PLOTLY)
             with subtab_graficos:
                 col_g1, col_g2 = st.columns(2)
                 conteo_riesgos = vivos['Riesgo_Principal'].value_counts().reset_index()
@@ -167,12 +179,13 @@ if dataset_loaded:
                 with col_g1:
                     st.write("**Distribución de Edades**")
                     fig_hist = px.histogram(vivos, x="age", nbins=20, color_discrete_sequence=['forestgreen'])
+                    fig_hist.update_traces(marker_line_color='black', marker_line_width=1.5)
                     st.plotly_chart(fig_hist, use_container_width=True)
                 
                 with col_g2:
                     st.write("**Patologías Activas (Interactivo)**")
-                    # Gráfico de Pastel Interactivo
                     fig_pie = px.pie(conteo_riesgos, values='Cantidad', names='Riesgo', hole=0.3)
+                    fig_pie.update_traces(marker=dict(line=dict(color='#000000', width=1)))
                     st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.warning("No se encontraron pacientes.")
@@ -204,11 +217,13 @@ if dataset_loaded:
                 with col_gf1:
                     st.write("**Distribución de Edades al Fallecer**")
                     fig_hist_f = px.histogram(fallecidos, x="age", nbins=20, color_discrete_sequence=['darkred'])
+                    fig_hist_f.update_traces(marker_line_color='black', marker_line_width=1.5)
                     st.plotly_chart(fig_hist_f, use_container_width=True)
                 
                 with col_gf2:
                     st.write("**Causas Probables (Interactivo)**")
                     fig_pie_f = px.pie(conteo_causas_df, values='Cantidad', names='Causa', hole=0.3)
+                    fig_pie_f.update_traces(marker=dict(line=dict(color='#000000', width=1)))
                     st.plotly_chart(fig_pie_f, use_container_width=True)
         else:
             st.warning("No se encontraron registros.")
