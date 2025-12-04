@@ -15,20 +15,21 @@ st.set_page_config(page_title="CardioGuard AI - Distributed", layout="wide")
 st.title("❤️ CardioGuard AI: Sistema Clínico Distribuido")
 st.markdown("**Arquitectura:** Maestro-Trabajador | **Consenso:** Votación Paralela")
 
-# --- FUNCIONES DE CLASIFICACIÓN CLÍNICA ---
+# --- FUNCIONES DE CLASIFICACIÓN CLÍNICA---
 def determinar_causa(row):
-    if row['serum_creatinine'] >= 1.8: return "Falla Renal Severa"
-    elif row['ejection_fraction'] < 30: return "Falla Cardíaca (Bajo Bombeo)"
-    elif row['platelets'] < 150000:     return "Problemas de Coagulación"
-    elif row['high_blood_pressure'] == 1: return "Hipertensión Crónica"
-    elif row['diabetes'] == 1:          return "Complicación Diabética"
+    if row['serum_creatinine'] >= 1.8: return "Falla Renal Severa (Riñones)"
+    elif row['ejection_fraction'] < 30: return "Falla Cardíaca (Corazón)"
+    elif row['platelets'] < 150000:     return "Problemas de Coagulación (Plaquetas)"
+    elif row['high_blood_pressure'] == 1: return "Hipertensión Crónica (Presión Arterial)"
+    elif row['diabetes'] == 1:          return "Complicación Diabética (Azúcar)"
     else:                               return "Causas Generales"
 
 def determinar_riesgo(row):
-    if row['serum_creatinine'] > 1.4:   return "Alto Riesgo Renal"
-    elif row['ejection_fraction'] < 30: return "Insuficiencia Cardíaca Severa"
-    elif row['high_blood_pressure'] == 1: return "Hipertensión No Controlada"
-    elif row['anaemia'] == 1:           return "Anemia Persistente"
+    # Agregamos sinónimos comunes aquí también
+    if row['serum_creatinine'] > 1.4:   return "Alto Riesgo Renal (Riñones)"
+    elif row['ejection_fraction'] < 30: return "Insuficiencia Cardíaca (Corazón)"
+    elif row['high_blood_pressure'] == 1: return "Hipertensión (Presión Arterial)"
+    elif row['anaemia'] == 1:           return "Anemia Persistente (Sangre)"
     elif row['diabetes'] == 1:          return "Diabetes"
     else:                               return "Bajo Riesgo Aparente"
 
@@ -84,7 +85,6 @@ if dataset_loaded:
     # --- FRONTEND CLÍNICO: SECCIÓN GLOBAL ---
     st.header("📊 Análisis Global de Datos")
     
-    # Pestañas Superiores
     tab_global_1, tab_global_2, tab_global_3 = st.tabs([
         "📉 Distribución General", 
         "🔥 Mapa de Calor Clínico", 
@@ -133,7 +133,7 @@ if dataset_loaded:
     # --- GESTIÓN DE PACIENTES ---
     st.header("👥 Gestión de Pacientes")
     
-    search_term = st.text_input("🔍 Buscar por enfermedad o condición (Ej: 'Renal', 'Diabetes', 'Corazón', 'Hipertensión'):", "")
+    search_term = st.text_input("🔍 Buscar por enfermedad o condición (Ej: 'Renal', 'Corazón', 'Presión', 'Diabetes'):", "")
 
     tab_vivos, tab_fallecidos = st.tabs(["🟢 Pacientes Vivos (Prevención)", "🔴 Análisis de Defunciones"])
 
@@ -143,6 +143,7 @@ if dataset_loaded:
         vivos['age'] = vivos['age'].astype(int)
         vivos['Riesgo_Principal'] = vivos.apply(determinar_riesgo, axis=1)
         
+        # Filtro de búsqueda
         if search_term:
             vivos = vivos[vivos['Riesgo_Principal'].str.contains(search_term, case=False, na=False)]
             st.info(f"Mostrando {len(vivos)} pacientes filtrados.")
@@ -153,16 +154,20 @@ if dataset_loaded:
             with subtab_lista:
                 for index, row in vivos.iterrows():
                     recommendations = []
+                    # Reglas Generales
                     if row['serum_creatinine'] > 1.4:
                         recommendations.append({"area": "Riñones", "diag": f"Creatinina elevada ({row['serum_creatinine']}).", "sol": "Solicitar ecografía renal."})
                     if row['ejection_fraction'] < 30:
                         recommendations.append({"area": "Corazón", "diag": f"Eyección crítica ({row['ejection_fraction']}%).", "sol": "Evaluar terapia de resincronización."})
                     if row['high_blood_pressure'] == 1:
                         recommendations.append({"area": "Presión", "diag": "Hipertensión detectada.", "sol": "Revisar dieta hiposódica."})
+                    # Reglas Adicionales (Diabetes/Anemia) para asegurar visualización
                     if row['diabetes'] == 1:
                          recommendations.append({"area": "Metabólico", "diag": "Paciente Diabético.", "sol": "Control glucémico estricto y revisión de pies."})
                     if row['anaemia'] == 1:
                          recommendations.append({"area": "Sangre", "diag": "Anemia detectada.", "sol": "Evaluar ferroterapia y dieta rica en hierro."})
+                    
+                    # Fallback para mostrar siempre la tarjeta
                     if not recommendations:
                         recommendations.append({"area": "General", "diag": "Sin alertas críticas inmediatas.", "sol": "Continuar monitoreo de rutina."})
 
