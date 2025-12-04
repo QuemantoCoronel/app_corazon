@@ -14,7 +14,7 @@ st.set_page_config(page_title="CardioGuard AI - Distributed", layout="wide")
 st.title("❤️ CardioGuard AI: Sistema Clínico Distribuido")
 st.markdown("**Arquitectura:** Maestro-Trabajador | **Consenso:** Votación Paralela")
 
-# --- FUNCIONES DE CLASIFICACIÓN CLÍNICA (Reglas de Negocio) ---
+# --- FUNCIONES DE CLASIFICACIÓN CLÍNICA ---
 def determinar_causa(row):
     if row['serum_creatinine'] >= 1.8: return "Falla Renal Severa"
     elif row['ejection_fraction'] < 30: return "Falla Cardíaca (Bajo Bombeo)"
@@ -52,7 +52,7 @@ if dataset_loaded:
     y = df['DEATH_EVENT']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # --- PANEL DE CONTROL DE SISTEMAS (Backend Status) ---
+    # --- PANEL DE CONTROL DE SISTEMAS (Backend) ---
     with st.expander("🖥️ Monitor de Sistema Distribuido (Backend)", expanded=True):
         col_sys1, col_sys2 = st.columns([1, 3])
         with col_sys1:
@@ -70,7 +70,6 @@ if dataset_loaded:
             resultados_nodos = {}
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 futures = {executor.submit(nodo_trabajador, name, m, X_train, y_train, X_test, y_test): name for name, m in modelos.items()}
-                
                 cols_nodos = st.columns(3)
                 idx = 0
                 for future in concurrent.futures.as_completed(futures):
@@ -85,9 +84,8 @@ if dataset_loaded:
 
     st.markdown("---")
 
-    # --- FRONTEND CLÍNICO (Visualización) ---
+    # --- FRONTEND CLÍNICO ---
     st.header("📊 Análisis Global de Datos")
-    
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("1. Distribución de Desenlace")
@@ -117,9 +115,8 @@ if dataset_loaded:
     # --- GESTIÓN DE PACIENTES CON BUSCADOR ---
     st.header("👥 Gestión de Pacientes")
     
-    # === BUSCADOR ===
+    # Buscador Global
     search_term = st.text_input("🔍 Buscar por enfermedad o condición (Ej: 'Renal', 'Diabetes', 'Corazón', 'Hipertensión'):", "")
-    # ===================================
 
     tab_vivos, tab_fallecidos = st.tabs(["🟢 Pacientes Vivos (Prevención)", "🔴 Análisis de Defunciones"])
 
@@ -129,32 +126,18 @@ if dataset_loaded:
         vivos['age'] = vivos['age'].astype(int)
         vivos['Riesgo_Principal'] = vivos.apply(determinar_riesgo, axis=1)
         
-        # LÓGICA DE FILTRADO
+        # Filtro de búsqueda
         if search_term:
             vivos = vivos[vivos['Riesgo_Principal'].str.contains(search_term, case=False, na=False)]
             st.info(f"Mostrando {len(vivos)} pacientes que coinciden con: '{search_term}'")
 
         if not vivos.empty:
-            conteo_riesgos = vivos['Riesgo_Principal'].value_counts()
+            # === SUB-PESTAÑAS PARA ORDENAR LA VISTA ===
+            subtab_lista, subtab_graficos = st.tabs(["📋 Lista de Diagnósticos (Prioridad)", "📊 Ver Gráficas y Estadísticas"])
             
-            st.subheader("1. Distribución de Edades (Pacientes Vivos)")
-            fig_hist_v, ax = plt.subplots(figsize=(8, 3))
-            sns.histplot(vivos['age'], kde=True, color='forestgreen', bins=15, ax=ax)
-            st.pyplot(fig_hist_v)
-            
-            col_v_graf, col_v_data = st.columns([1, 2])
-            
-            with col_v_graf:
-                st.subheader("2. Patologías Activas")
-                fig_pie_v, ax = plt.subplots()
-                colors = sns.color_palette('pastel')[0:len(conteo_riesgos)]
-                ax.pie(conteo_riesgos, labels=conteo_riesgos.index, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'color':"black"})
-                ax.axis('equal')
-                st.pyplot(fig_pie_v)
-                
-            with col_v_data:
-                st.metric("Total Pacientes en Seguimiento", len(vivos))
-                st.subheader("3. Diagnóstico y Tratamiento Sugerido")
+            # 1. LA LISTA (Lo más importante primero)
+            with subtab_lista:
+                st.subheader(f"Listado de Pacientes en Seguimiento ({len(vivos)})")
                 for index, row in vivos.iterrows():
                     recommendations = []
                     if row['serum_creatinine'] > 1.4:
@@ -169,6 +152,26 @@ if dataset_loaded:
                             for rec in recommendations:
                                 st.markdown(f"**⚠️ {rec['diag']}**")
                                 st.info(f"💡 {rec['sol']}")
+
+            # 2. LAS GRÁFICAS (Opcional en otra pestaña)
+            with subtab_graficos:
+                st.subheader("Análisis Estadístico del Grupo")
+                conteo_riesgos = vivos['Riesgo_Principal'].value_counts()
+                
+                col_g1, col_g2 = st.columns(2)
+                with col_g1:
+                    st.write("**Distribución de Edades**")
+                    fig_hist_v, ax = plt.subplots(figsize=(6, 4))
+                    sns.histplot(vivos['age'], kde=True, color='forestgreen', bins=15, ax=ax)
+                    st.pyplot(fig_hist_v)
+                
+                with col_g2:
+                    st.write("**Patologías Activas**")
+                    fig_pie_v, ax = plt.subplots(figsize=(6, 4))
+                    colors = sns.color_palette('pastel')[0:len(conteo_riesgos)]
+                    ax.pie(conteo_riesgos, labels=conteo_riesgos.index, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'color':"black"})
+                    ax.axis('equal')
+                    st.pyplot(fig_pie_v)
         else:
             st.warning("No se encontraron pacientes con esa condición.")
 
@@ -178,32 +181,40 @@ if dataset_loaded:
         fallecidos['age'] = fallecidos['age'].astype(int)
         fallecidos['Causa_Probable'] = fallecidos.apply(determinar_causa, axis=1)
         
-        # LÓGICA DE FILTRADO
+        # Filtro de búsqueda
         if search_term:
             fallecidos = fallecidos[fallecidos['Causa_Probable'].str.contains(search_term, case=False, na=False)]
             st.info(f"Mostrando {len(fallecidos)} fallecimientos relacionados con: '{search_term}'")
 
         if not fallecidos.empty:
-            conteo_causas = fallecidos['Causa_Probable'].value_counts()
+            # === SUB-PESTAÑAS PARA FALLECIDOS ===
+            subtab_lista_f, subtab_graficos_f = st.tabs(["📋 Lista Agrupada", "📊 Ver Gráficas y Estadísticas"])
 
-            st.subheader("1. Distribución de Edades al Fallecer")
-            fig_hist, ax = plt.subplots(figsize=(8, 3))
-            sns.histplot(fallecidos['age'], kde=True, color='darkred', bins=15, ax=ax)
-            st.pyplot(fig_hist)
-
-            col_pastel, col_datos = st.columns([1, 1])
-            with col_pastel:
-                st.subheader("2. Causas Probables")
-                fig_pie, ax = plt.subplots()
-                colors = sns.color_palette('Set2')[0:len(conteo_causas)]
-                ax.pie(conteo_causas, labels=conteo_causas.index, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'color':"black"})
-                ax.axis('equal')  
-                st.pyplot(fig_pie)
-
-            with col_datos:
-                st.subheader("3. Detalle por Grupo")
+            # 1. LA LISTA
+            with subtab_lista_f:
+                st.subheader("Registro Histórico de Defunciones")
+                conteo_causas = fallecidos['Causa_Probable'].value_counts()
                 for causa, cantidad in conteo_causas.items():
                     with st.expander(f"📂 {causa}: {cantidad} pacientes"):
-                        st.table(fallecidos[fallecidos['Causa_Probable'] == causa][['age', 'sex', 'diabetes']].head(5))
+                        st.table(fallecidos[fallecidos['Causa_Probable'] == causa][['age', 'sex', 'diabetes']].head(10))
+
+            # 2. LAS GRÁFICAS
+            with subtab_graficos_f:
+                st.subheader("Análisis Forense de Datos")
+                col_gf1, col_gf2 = st.columns(2)
+                
+                with col_gf1:
+                    st.write("**Distribución de Edades al Fallecer**")
+                    fig_hist, ax = plt.subplots(figsize=(6, 4))
+                    sns.histplot(fallecidos['age'], kde=True, color='darkred', bins=15, ax=ax)
+                    st.pyplot(fig_hist)
+                
+                with col_gf2:
+                    st.write("**Causas Probables**")
+                    fig_pie, ax = plt.subplots(figsize=(6, 4))
+                    colors = sns.color_palette('Set2')[0:len(conteo_causas)] # Cambié variable para evitar error
+                    ax.pie(conteo_causas, labels=conteo_causas.index, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'color':"black"})
+                    ax.axis('equal')  
+                    st.pyplot(fig_pie)
         else:
             st.warning("No se encontraron registros históricos con esa condición.")
